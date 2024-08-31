@@ -9,10 +9,23 @@ const loggingMiddleWare = (request, response, next) => {
     next()
 }
 
-app.use(loggingMiddleWare, () => {
-    console.log('Logging Completed...')
-})
+// app.use(loggingMiddleWare, () => {
+//     console.log('Logging Completed...')
+// })
 
+const resolveIndexByUserId = (request, response, next) => {
+    const {params: {id}} = request
+    const parsedId = parseInt(id)
+    if (isNaN(parsedId)) {
+        return response.send(400).send('Bad Request. Invalid Id')
+    }
+    const userIndex = MOCK_USERS.findIndex((user) => user.id === parsedId)
+    if (userIndex === -1) {
+        return response.sendStatus(404)
+    }
+    request.userIndex = userIndex
+    next()
+}
 
 app.listen(PORT, () => {
     `Running on port ${PORT}`;
@@ -42,17 +55,9 @@ app.get('/api/users', (request, response
     return response.status(200).send(MOCK_USERS)
 })
 
-app.get('/api/users/:id', (request, response) => {
-    const {params: {id}} = request
-    const parsedId = parseInt(id)
-    if (isNaN(parsedId)) {
-        return response.send(400).send('Bad Request. Invalid Id')
-    }
-    const user = MOCK_USERS.find((user) => user.id === parsedId)
-    if (!user) {
-        return response.sendStatus(404)
-    }
-    return response.status(200).send(user)
+app.get('/api/users/:id', resolveIndexByUserId, (request, response) => {
+    const {userIndex} = request
+    return response.status(200).send(MOCK_USERS[userIndex])
 })
 
 app.post('/api/users', (request, response) => {
@@ -65,45 +70,21 @@ app.post('/api/users', (request, response) => {
     return response.status(201).send(newUser)
 })
 
-app.put('/api/users/:id', (request, response) => {
-    const {params: {id}, body} = request
-    const parsedId = parseInt(id)
-    if (isNaN(parsedId)) {
-        return response.sendStatus(400)
-    }
-    const index = MOCK_USERS.findIndex((user) => user.id === parsedId)
-    if (index === -1) {
-        return response.sendStatus(404)
-    }
-    MOCK_USERS[index] = {id: parsedId, ...body}
+app.put('/api/users/:id', resolveIndexByUserId, (request, response) => {
+    const {userIndex, body} = request
+    MOCK_USERS[userIndex] = {id: MOCK_USERS[userIndex].id, ...body}
     return response.sendStatus(204)
 
 })
 
-app.patch('/api/users/:id', (request, response) => {
-    const {params: {id}, body} = request
-    const parsedId = parseInt(id)
-    if (isNaN(parsedId)) {
-        return response.sendStatus(400)
-    }
-    const index = MOCK_USERS.findIndex((user) => user.id === parsedId)
-    if (index === -1) {
-        return response.sendStatus(404)
-    }
-    MOCK_USERS[index] = {...MOCK_USERS[index], ...body}
+app.patch('/api/users/:id', resolveIndexByUserId, (request, response) => {
+    const {userIndex, body} = request
+    MOCK_USERS[userIndex] = {...MOCK_USERS[userIndex], ...body}
     return response.sendStatus(204)
 })
 
 app.delete('/api/users/:id', (request, response) => {
-    const {params: {id}} = request
-    const parsedId = parseInt(id)
-    if (isNaN(parsedId)) {
-        return response.sendStatus(400)
-    }
-    const index = MOCK_USERS.findIndex((user) => user.id === parsedId)
-    if (index === -1) {
-        return response.sendStatus(404)
-    }
-    MOCK_USERS.splice(index, 1)
+    const {userIndex} = request
+    MOCK_USERS.splice(userIndex, 1)
     return response.sendStatus(200)
 })
