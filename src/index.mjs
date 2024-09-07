@@ -1,4 +1,6 @@
 import express from 'express';
+import {checkSchema, query, validationResult, body, matchedData} from 'express-validator'
+import {createUserValidationSchema} from "./utils/validationSchemas.mjs";
 
 const PORT = process.env.PORT ?? 3000;
 const app = express();
@@ -45,8 +47,14 @@ app.get('/', (request, response) => {
     response.status(201).send({msg: "Hello World"})
 });
 
-app.get('/api/users', (request, response
+app.get('/api/users', query('filter').optional().isString().isLength({
+    min: 4
+}).withMessage('Length Should be greater than 3'), (request, response
 ) => {
+    const bodyValidationResult = validationResult(request)
+    if (!bodyValidationResult.isEmpty()) {
+        return response.status(400).send(bodyValidationResult)
+    }
     const {query: {filter, value}} = request
     if (filter && value) {
         const result = MOCK_USERS.filter((user) => user[filter].includes(value))
@@ -60,17 +68,25 @@ app.get('/api/users/:id', resolveIndexByUserId, (request, response) => {
     return response.status(200).send(MOCK_USERS[userIndex])
 })
 
-app.post('/api/users', (request, response) => {
-    const {body} = request
+app.post('/api/users', checkSchema(createUserValidationSchema), (request, response) => {
+    const bodyValidationResult = validationResult(request)
+    if (!bodyValidationResult.isEmpty()) {
+        return response.status(400).send(bodyValidationResult)
+    }
+    const data = matchedData(request)
     const newUser = {
         id: MOCK_USERS[MOCK_USERS.length - 1].id + 1,
-        ...body
+        ...data
     }
     MOCK_USERS.push(newUser)
     return response.status(201).send(newUser)
 })
 
-app.put('/api/users/:id', resolveIndexByUserId, (request, response) => {
+app.put('/api/users/:id', resolveIndexByUserId, body('name').isString().notEmpty(), (request, response) => {
+    const bodyValidationResult = validationResult(request)
+    if (!bodyValidationResult.isEmpty()) {
+        return response.status(400).send(bodyValidationResult)
+    }
     const {userIndex, body} = request
     MOCK_USERS[userIndex] = {id: MOCK_USERS[userIndex].id, ...body}
     return response.sendStatus(204)
